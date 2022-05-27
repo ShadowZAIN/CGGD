@@ -18,7 +18,7 @@ void cg::renderer::rasterization_renderer::init()
 }
 void cg::renderer::rasterization_renderer::render()
 {
-	rasterizer->clear_render_target({111, 15, 112});
+	rasterizer->clear_render_target({150, 150, 200});
 
 	cg::utils::save_resource(*render_target, settings->result_path);
 	// TODO: Lab 1.03. Adjust `cg::renderer::rasterization_renderer` class to consume `cg::world::model`
