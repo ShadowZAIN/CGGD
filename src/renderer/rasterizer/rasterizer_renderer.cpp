@@ -15,7 +15,7 @@ void cg::renderer::rasterization_renderer::init()
 	model = std::make_shared<cg::world::model>();
 	model->load_obj(settings->model_path);
 
-	camera = std::make_shared<cg::world::model>();
+	camera = std::make_shared<cg::world::camera>();
 	camera->set_height(static_cast<float>(settings->height));
 	camera->set_width(static_cast<float>(settings->width));
 	camera->set_position(
@@ -37,14 +37,22 @@ void cg::renderer::rasterization_renderer::render()
 {
 	rasterizer->clear_render_target({150, 150, 200});
 
-
 	for (size_t shape_id = 0; shape_id < model->get_index_buffers().size(); shape_id++)
 	{
 		rasterizer->set_vertex_buffer(model->get_vertex_buffers()[shape_id]);
 		rasterizer->set_index_buffer(model->get_index_buffers()[shape_id]);
 		rasterizer->draw(model->get_index_buffers()[shape_id]->get_number_of_elements(), 0);
 	}
-	// TODO: Lab 1.04. Implement `vertex_shader` lambda for the instance of `cg::renderer::rasterizer`
+
+	float4x4 matrix = mul(
+			camera->get_projection_matrix(),
+			camera->get_view_matrix(),
+			model->get_world_matrix()
+			);
+	rasterizer->vertex_shader = [&](float4 vertex, cg::vertex vertex_data) {
+		auto processed = mul(matrix, vertex);
+		return std::make_pair(processed, vertex_data);
+	};
 	// TODO: Lab 1.05. Implement `pixel_shader` lambda for the instance of `cg::renderer::rasterizer`
 	cg::utils::save_resource(*render_target, settings->result_path);
 }
