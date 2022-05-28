@@ -16,7 +16,6 @@ cg::world::model::~model() {}
 
 void cg::world::model::load_obj(const std::filesystem::path& model_path)
 {
-	// TODO: Lab 1.03. Using `tinyobjloader` implement `load_obj`, `get_vertex_buffers`, `get_index_buffers` methods of `cg::world::model` class
 	tinyobj::ObjReaderConfig readerConfig;
 	readerConfig.mtl_search_path = model_path.parent_path().string();
 	readerConfig.triangulate = true;
@@ -44,7 +43,7 @@ void cg::world::model::load_obj(const std::filesystem::path& model_path)
 		const auto& mesh = shapes[s].mesh;
 		for (size_t f = 0; f < mesh.num_face_vertices.size(); f++)
 		{
-			int fv = mesh.num_face_vertices[f];
+			size_t fv = mesh.num_face_vertices[f];
 			for (size_t v = 0; v < fv; v++)
 			{
 				tinyobj::index_t idx = mesh.indices[index_offset + v];
@@ -90,7 +89,7 @@ void cg::world::model::load_obj(const std::filesystem::path& model_path)
 		const auto& mesh = shapes[s].mesh;
 		for (size_t f = 0; f < mesh.num_face_vertices.size(); f++)
 		{
-			int fv = mesh.num_face_vertices[f];
+			size_t fv = mesh.num_face_vertices[f];
 			float3 normal;
 			if (mesh.indices[index_offset].normal_index < 0)
 			{
