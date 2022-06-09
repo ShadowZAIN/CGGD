@@ -155,10 +155,10 @@ void cg::world::model::load_obj(const std::filesystem::path& model_path)
 					else
 					{
 						vertex.u = attrib.texcoords[2 * idx.texcoord_index];
-						vertex.y = attrib.texcoords[2 * idx.texcoord_index + 1];
+						vertex.v = attrib.texcoords[2 * idx.texcoord_index + 1];
 					}
 
-					if (materials.empty()) //materials.size() > 0
+					if (materials.size() > 0) //materials.size() > 0
 					{
 						const auto& material = materials[mesh.material_ids[f]];
 

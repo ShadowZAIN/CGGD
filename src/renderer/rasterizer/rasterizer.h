@@ -130,8 +130,8 @@ namespace cg::renderer
 							0.f,
 							static_cast<float>(width - 1)),
 					std::clamp(
-							std::min(std::min(vertices[0].x, vertices[1].x),
-								 vertices[2].x),
+							std::min(std::min(vertices[0].y, vertices[1].y),
+								 vertices[2].y),
 							0.f,
 							static_cast<float>(height - 1)),
 			};
@@ -143,8 +143,8 @@ namespace cg::renderer
 							0.f,
 							static_cast<float>(width - 1)),
 					std::clamp(
-							std::max(std::min(vertices[0].x, vertices[1].x),
-									 vertices[2].x),
+							std::max(std::min(vertices[0].y, vertices[1].y),
+									 vertices[2].y),
 							0.f,
 							static_cast<float>(height - 1)),
 			};
@@ -158,7 +158,7 @@ namespace cg::renderer
 				x <= static_cast<int>(bounding_box_end.x); x++)
 			{
 				for (int y = static_cast<int>(bounding_box_begin.y);
-					 y <= static_cast<int>(bounding_box_end.y); x++)
+					 y <= static_cast<int>(bounding_box_end.y); y++)
 				{
 					float2 point{static_cast<float>(x), static_cast<float>(y)};
 					float edge0 = edge_function(
