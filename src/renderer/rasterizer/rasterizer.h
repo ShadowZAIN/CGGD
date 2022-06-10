@@ -138,12 +138,12 @@ namespace cg::renderer
 
 			float2 bounding_box_end{
 					std::clamp(
-							std::max(std::min(vertices[0].x, vertices[1].x),
+							std::max(std::max(vertices[0].x, vertices[1].x),
 									 vertices[2].x),
 							0.f,
 							static_cast<float>(width - 1)),
 					std::clamp(
-							std::max(std::min(vertices[0].y, vertices[1].y),
+							std::max(std::max(vertices[0].y, vertices[1].y),
 									 vertices[2].y),
 							0.f,
 							static_cast<float>(height - 1)),
