@@ -34,6 +34,12 @@ void cg::renderer::ray_tracing_renderer::init()
 	raytracer->set_viewport(settings->width, settings->height);
 	raytracer->set_index_buffers(model->get_index_buffers());
 
+	lights.push_back({
+			float3{0.f, 1.58f, -0.3f},
+			float3 {0.78f, 0.78f, 0.78f}});
+
+	shadow_raytracer = std::make_shared<cg::renderer::raytracer<
+	        >()
 	// TODO: Lab 2.03. Add light information to lights array of ray_tracing_renderer
 	// TODO: Lab 2.04. Initialize `shadow_raytracer` in `ray_tracing_renderer`
 }
@@ -50,6 +56,19 @@ void cg::renderer::ray_tracing_renderer::render()
 		payload payload{};
 		payload.color = {(ray.direction.y + 1.f) * 0.5f, 0.f, (ray.direction.y + 1.f) * 0.25f};
 		return payload;
+	};
+	raytracer->build_acceleration_structure();
+	shadow_raytracer->acceleration_structures = raytracer->acceleration_structures;
+
+	shadow_raytracer->miss_shader = [](const ray& ray)
+	{
+		payload payload{};
+		payload.t = -1.f;
+		return payload;
+	};
+	shadow_raytracer->any_hit_shader = [](const ray& ray, payload& payload)
+	{
+
 	};
 
 	auto start = std::chrono::high_resolution_clock::now();
