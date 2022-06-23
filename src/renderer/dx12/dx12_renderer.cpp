@@ -65,18 +65,53 @@ ComPtr<IDXGIFactory4> cg::renderer::dx12_renderer::get_dxgi_factory()
 
 void cg::renderer::dx12_renderer::initialize_device(ComPtr<IDXGIFactory4>& dxgi_factory)
 {
-	// TODO Lab 3.02. Enumerate hardware adapters
-	// TODO Lab 3.02. Create a device object
+	ComPtr<IDXGIAdapter1> hardware_adapter;
+	dxgi_factory->EnumAdapters1(0, &hardware_adapter);
+#ifdef
+	DXGI_ADAPTER_DESC adapter_desc = {};
+	hardware_adapter->GetDesc(&adapter_desc);
+	OutputDebugString(adapter_desc.Description);
+	OutputDebugString(L"\n");
+#endif
+	THROW_IF_FAILED(D3D12CreateDevice(hardware_adapter.Get(),
+									  D3D_FEATURE_LEVEL_11_0,
+									  IID_PPV_ARGS(&device)));
 }
 
 void cg::renderer::dx12_renderer::create_direct_command_queue()
 {
-	// TODO Lab 3.02. Create a command queue
+	D3D12_COMMAND_QUEUE_DESC queue_desc = {};
+	queue_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+	queue_desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+	device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&command_queue));
 }
 
 void cg::renderer::dx12_renderer::create_swap_chain(ComPtr<IDXGIFactory4>& dxgi_factory)
 {
-	// TODO Lab 3.02. Create a swap chain and bind it to window
+	DXGI_SWAP_CHAIN_DESC1 swap_chain_desc = {};
+	swap_chain_desc.BufferCount = frame_number;
+	swap_chain_desc.Height = settings->height;
+	swap_chain_desc.Width = settings->width;
+	swap_chain_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	swap_chain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	swap_chain_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+	swap_chain_desc.SampleDesc.Count = 1;
+
+	ComPtr<IDXGISwapChain1> temp_swap_chain;
+	THROW_IF_FAILED(dxgi_factory->CreateSwapChainForHwnd(
+			command_queue.Get(),
+			cg::utils::window::get_hwnd(),
+			&swap_chain_desc,
+			nullptr,
+			nullptr,
+			&temp_swap_chain
+			));
+	dxgi_factory->MakeWindowAssociation(
+			cg::utils::window::get_hwnd(),
+			DXGI_MWA_NO_ALT_ENTER
+			);
+	temp_swap_chain.As(&swap_chain);
+	frame_index = swap_chain->GetCurrentBackBufferIndex();
 }
 
 void cg::renderer::dx12_renderer::create_render_target_views()
