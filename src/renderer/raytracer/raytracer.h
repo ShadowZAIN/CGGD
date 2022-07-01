@@ -54,7 +54,20 @@ namespace cg::renderer
 	inline triangle<VB>::triangle(
 			const VB& vertex_a, const VB& vertex_b, const VB& vertex_c)
 	{
-		// TODO: Lab 2.02. Implement a constructor of triangle struct
+		a = float3{vertex_a.x, vertex_a.y, vertex_a.z};
+		b = float3{vertex_b.x, vertex_b.y, vertex_b.z};
+		c = float3{vertex_c.x, vertex_c.y, vertex_c.z};
+
+		ba = b - a;
+		ca = c - a;
+
+		na = float3{vertex_a.nx, vertex_a.ny, vertex_a.nz};
+		nb = float3{vertex_b.nx, vertex_b.ny, vertex_b.nz};
+		nc = float3{vertex_c.nx, vertex_c.ny, vertex_c.nz};
+
+		ambient = {vertex_a.ambient_r, vertex_a.ambient_g, vertex_a.ambient_b};
+		diffuse = {vertex_a.diffuse_r, vertex_a.diffuse_g, vertex_a.diffuse_b};
+		emissive = {vertex_a.emissive_r, vertex_a.emissive_g, vertex_a.emissive_b};
 	}
 
 	template<typename VB>
@@ -102,8 +115,8 @@ namespace cg::renderer
 		std::function<payload(const ray& ray)> miss_shader = nullptr;
 		std::function<payload(const ray& ray, payload& payload, const triangle<VB>& triangle, size_t depth)>
 				closest_hit_shader = nullptr;
-		std::function<payload(const ray& ray, payload& payload, const triangle<VB>& triangle)> any_hit_shader =
-				nullptr;
+		std::function<payload(const ray& ray, payload& payload, const triangle<VB>& triangle)>
+		        any_hit_shader = nullptr;
 
 		float2 get_jitter(int frame_id);
 
@@ -112,6 +125,7 @@ namespace cg::renderer
 		std::shared_ptr<cg::resource<float3>> history;
 		std::vector<std::shared_ptr<cg::resource<unsigned int>>> index_buffers;
 		std::vector<std::shared_ptr<cg::resource<VB>>> vertex_buffers;
+		std::vector<triangle<VB>> triangles;
 
 		size_t width = 1920;
 		size_t height = 1080;
@@ -137,12 +151,12 @@ namespace cg::renderer
 	template<typename VB, typename RT>
 	void raytracer<VB, RT>::set_index_buffers(std::vector<std::shared_ptr<cg::resource<unsigned int>>> in_index_buffers)
 	{
-		// TODO: Lab 2.02. Implement set_vertex_buffers and set_index_buffers of raytracer class
+		index_buffers = in_index_buffers;
 	}
 	template<typename VB, typename RT>
 	inline void raytracer<VB, RT>::set_vertex_buffers(std::vector<std::shared_ptr<cg::resource<VB>>> in_vertex_buffers)
 	{
-		// TODO: Lab 2.02. Implement set_vertex_buffers and set_index_buffers of raytracer class
+		vertex_buffers = in_vertex_buffers;
 	}
 
 	template<typename VB, typename RT>
@@ -150,15 +164,20 @@ namespace cg::renderer
 	{
 		for (size_t shape_id = 0; shape_id < index_buffers.size(); shape_id++)
 		{
-
+			auto& index_buffer = index_buffers[shape_id];
+			auto& vertex_buffer = vertex_buffers[shape_id];
+			size_t index_id = 0;
+			aabb<VB> aabb;
+			while(index_id < index_buffer->get_number_of_elements())
+			{
+				triangle<VB> triangle(
+						vertex_buffer->item(index_buffer->item(index_id++)),
+						vertex_buffer->item(index_buffer->item(index_id++)),
+						vertex_buffer->item(index_buffer->item(index_id++)));
+				aabb.add_triangle(triangle);
+			}
+			acceleration_structures.push_back(aabb);
 		}
-		size_t index_id = 0;
-		aabb<VB> aabb;
-		while (index_id < index_buffers->get_number_of_elements())
-		{
-
-		}
-		acceleration_structures.push_back(aabb);
 	}
 
 	template<typename VB, typename RT>
@@ -175,13 +194,13 @@ namespace cg::renderer
 			float3 position, float3 direction,
 			float3 right, float3 up, size_t depth, size_t accumulation_num)
 	{
-		for (int x = 0; x < width; x++)
+		for (size_t x = 0; x < width; x++)
 		{
-			for (int y = 0; y < height; y++)
+			for (size_t y = 0; y < height; y++)
 			{
-				float u = (2.f * x) / static_cast<float>(width - 1) - 1.f;
-				float v = (2.f * y) / static_cast<float>(height - 1) - 1.f;
-				u *= static_cast<float>(width) / height;
+				float u = (2.f * static_cast<float> (x)) / static_cast<float>(width - 1) - 1.f;
+				float v = (2.f * static_cast<float> (y)) / static_cast<float>(height - 1) - 1.f;
+				u *= static_cast<float>(width) / static_cast<float>(height);
 				float3 ray_direction = direction + u * right - v * up;
 				ray ray(position, ray_direction);
 
@@ -203,23 +222,92 @@ namespace cg::renderer
 			return miss_shader(ray);
 		depth--;
 
+		payload closest_hit_payload = {};
+		closest_hit_payload.t = max_t;
+		const triangle<VB>* closest_triangle = nullptr;
+
+		for (auto& aabb: acceleration_structures)
+		{
+			if(!aabb.aabb_test(ray))
+				continue;
+			for (auto& triangle: aabb.get_triangles())
+			{
+				payload payload = intersection_shader(triangle, ray);
+				if (payload.t > min_t && payload.t < closest_hit_payload.t)
+				{
+					closest_hit_payload = payload;
+					closest_triangle = &triangle;
+
+					if (any_hit_shader)
+						return any_hit_shader(ray, payload, triangle);
+				}
+			}
+		}
+
+		if (closest_hit_payload.t < max_t)
+		{
+			if (closest_hit_shader)
+				return closest_hit_shader(ray, closest_hit_payload, *closest_triangle, depth);
+		}
+
+
 		return miss_shader(ray);
-		// TODO: Lab 2.02. Adjust trace_ray method of raytracer class to traverse geometry and call a closest hit shader
-		// TODO: Lab 2.04. Adjust `trace_ray` method of `raytracer` to use `any_hit_shader`
-		// TODO: Lab 2.05. Adjust trace_ray method of raytracer class to traverse the acceleration structure
 	}
 
 	template<typename VB, typename RT>
 	inline payload raytracer<VB, RT>::intersection_shader(
 			const triangle<VB>& triangle, const ray& ray) const
 	{
-		// TODO: Lab 2.02. Implement an intersection_shader method of raytracer class
+		payload payload{};
+		payload.t = -1.f;
+
+		float3 pvec = cross(ray.direction, triangle.ca);
+		float det = dot(triangle.ba, pvec);
+		if (det > -1e-8 && det < 1e-8)
+			return payload;
+
+		float inv_det = 1.f / det;
+		float3 tvec = ray.position - triangle.a;
+		float u = dot(tvec, pvec) * inv_det;
+		if (u < 0.f || u > 1.f)
+			return payload;
+
+		float3 qvec = cross(tvec, triangle.ba);
+		float v = dot(ray.direction, qvec) * inv_det;
+		if (v < 0.f || u + v > 1.f)
+			return payload;
+
+		payload.t = dot(triangle.ca, qvec) * inv_det;
+		payload.bary = float3{1.f - u - v, u, v};
+		return payload;
 	}
 
 	template<typename VB, typename RT>
 	float2 raytracer<VB, RT>::get_jitter(int frame_id)
 	{
-		// TODO: Lab 2.06. Implement `get_jitter` method of `raytracer` class
+		float2 result{0.f, 0.f};
+		constexpr int base_x = 2;
+		int index = frame_id + 1;
+		float inv_base = 1.f/base_x;
+		float fraction = inv_base;
+		while (index > 0)
+		{
+			result.x += (index % base_x) * fraction;
+			index /= base_x;
+			fraction *= inv_base;
+		}
+
+		constexpr int base_y = 3;
+		index = frame_id + 1;
+		inv_base = 1.f/base_y;
+		fraction = inv_base;
+		while (index > 0)
+		{
+			result.y += (index % base_y) * fraction;
+			index /= base_y;
+			fraction *= inv_base;
+		}
+		return result - 0.5f;
 	}
 
 

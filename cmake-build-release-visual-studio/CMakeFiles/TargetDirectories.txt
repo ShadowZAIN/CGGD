@@ -1,5 +1,0 @@
-C:/Users/zain/Documents/GitHub/CGGD/cmake-build-release-visual-studio/CMakeFiles/edit_cache.dir
-C:/Users/zain/Documents/GitHub/CGGD/cmake-build-release-visual-studio/CMakeFiles/Rasterization.dir
-C:/Users/zain/Documents/GitHub/CGGD/cmake-build-release-visual-studio/CMakeFiles/DirectX12.dir
-C:/Users/zain/Documents/GitHub/CGGD/cmake-build-release-visual-studio/CMakeFiles/Raytracing.dir
-C:/Users/zain/Documents/GitHub/CGGD/cmake-build-release-visual-studio/CMakeFiles/rebuild_cache.dir
