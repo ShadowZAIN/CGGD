@@ -29,6 +29,16 @@ void cg::renderer::dx12_renderer::init()
 	camera->set_angle_of_view(settings->camera_angle_of_view);
 	camera->set_z_near(settings->camera_z_near);
 	camera->set_z_far(settings->camera_z_far);
+
+	view_port = CD3DX12_VIEWPORT(0.f, 0.f,
+								 static_cast<float>(settings->width),
+								 static_cast<float>(settings->height));
+	scissor_rect = CD3DX12_RECT(0, 0,
+								static_cast<LONG>(settings->width),
+								static_cast<LONG>(settings->height));
+
+	load_pipeline();
+	load_assets();
 }
 
 void cg::renderer::dx12_renderer::destroy()
@@ -44,7 +54,17 @@ void cg::renderer::dx12_renderer::update()
 
 void cg::renderer::dx12_renderer::render()
 {
-	// TODO Lab 3.06. Implement `render` method
+	populate_command_list();
+
+	ID3D12CommandList* command_lists[] = {command_list.Get()};
+	command_queue->ExecuteCommandLists(
+			_countof(command_lists),
+			command_lists
+			);
+
+	THROW_IF_FAILED(swap_chain->Present(1, 0));
+
+	move_to_next_frame();
 }
 
 ComPtr<IDXGIFactory4> cg::renderer::dx12_renderer::get_dxgi_factory()
@@ -282,7 +302,7 @@ void cg::renderer::dx12_renderer::create_pso(const std::string& shader_name)
 			);
 	ComPtr<ID3DBlob> pixel_shader = compile_shader(
 			get_shader_path(shader_name),
-			"OSMain",
+			"PSMain",
 			"ps_5_0"
 	);
 
@@ -475,13 +495,83 @@ void cg::renderer::dx12_renderer::load_assets()
 	create_constant_buffer_view(
 			constant_buffer,
 			cbv_srv_heap.get_cpu_descriptor_handle(0));
+
+	// Create a fence
+	THROW_IF_FAILED(device->CreateFence(
+			0, D3D12_FENCE_FLAG_NONE,
+			IID_PPV_ARGS(&fence)));
+	fence_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	if (fence_event == nullptr)
+	{
+		THROW_IF_FAILED(HRESULT_FROM_WIN32(GetLastError()));
+	}
+
+	wait_for_gpu();
 }
 
 
 void cg::renderer::dx12_renderer::populate_command_list()
 {
-	// TODO Lab 3.06. Implement `populate_command_list` method
+	// Reset
+	THROW_IF_FAILED(command_allocators[frame_index]->Reset());
+	THROW_IF_FAILED(command_list->Reset(
+			command_allocators[frame_index].Get(),
+			pipeline_state.Get()));
 
+	// Initial state
+	command_list->SetGraphicsRootSignature(root_signature.Get());
+	ID3D12DescriptorHeap* heaps[] = {cbv_srv_heap.get()};
+	command_list->SetDescriptorHeaps(_countof(heaps), heaps);
+	command_list->SetComputeRootDescriptorTable(
+			0, cbv_srv_heap.get_gpu_descriptor_handle(0));
+	command_list->RSSetViewports(1, &view_port);
+	command_list->RSSetScissorRects(1, &scissor_rect);
+
+	command_list->ResourceBarrier(
+			1,
+			&CD3DX12_RESOURCE_BARRIER::Transition(
+					render_targets[frame_index].Get(),
+					D3D12_RESOURCE_STATE_PRESENT,
+					D3D12_RESOURCE_STATE_RENDER_TARGET
+					)
+			);
+
+	// Drawing
+	command_list->OMSetRenderTargets(
+			1,
+			&rtv_heap.get_cpu_descriptor_handle(frame_index),
+			FALSE,
+			nullptr
+			);
+	const float clear_color[] = {0.f, 0.f, 0.f, 1.f};
+	command_list->ClearRenderTargetView(
+			rtv_heap.get_cpu_descriptor_handle(frame_index),
+			clear_color,
+			0,
+			nullptr
+			);
+	command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	for (size_t s = 0; s < model->get_vertex_buffers().size(); s++)
+	{
+		command_list->IASetVertexBuffers(0, 1, &vertex_buffer_views[s]);
+		command_list->IASetIndexBuffer(&index_buffer_views[s]);
+		command_list->DrawIndexedInstanced(
+				static_cast<UINT>(model->get_index_buffers()[s]->get_number_of_elements()),
+				1, 0, 0, 0
+				);
+	}
+
+	command_list->ResourceBarrier(
+			1,
+			&CD3DX12_RESOURCE_BARRIER::Transition(
+					render_targets[frame_index].Get(),
+					D3D12_RESOURCE_STATE_RENDER_TARGET,
+					D3D12_RESOURCE_STATE_PRESENT
+					)
+	);
+
+	THROW_IF_FAILED(command_list->Close());
 }
 
 
@@ -492,7 +582,16 @@ void cg::renderer::dx12_renderer::move_to_next_frame()
 
 void cg::renderer::dx12_renderer::wait_for_gpu()
 {
-	// TODO Lab 3.07. Implement `wait_for_gpu` method
+	THROW_IF_FAILED(command_queue->Signal(
+			fence.Get(),
+			fence_values[frame_index]
+			));
+	THROW_IF_FAILED(fence->SetEventOnCompletion(
+			fence_values[frame_index],
+			fence_event
+			));
+	WaitForSingleObjectEx(fence_event, INFINITE, FALSE);
+	fence_values[frame_index]++;
 }
 
 
